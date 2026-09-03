@@ -2382,15 +2382,13 @@ window.addEventListener('resize', () => {
   }
 });
 
-// ─── User Database & Login Analytics Manager ─────────
+// ─── Silent User Database & Cloud Login Analytics ─────────
 const UserDBManager = {
   db: null,
   isFirebaseReady: false,
-  adminUnlocked: false,
 
   init() {
     this.initFirebase();
-    this.setupListeners();
   },
 
   initFirebase() {
@@ -2404,37 +2402,11 @@ const UserDBManager = {
           }
           this.db = firebase.firestore();
           this.isFirebaseReady = true;
-          this.updateDbStatusUI(true, config.projectId);
-          return;
+          console.log('Firebase Cloud Database connected.');
         }
       }
     } catch (e) {
       console.warn('Firebase init error:', e);
-    }
-    this.updateDbStatusUI(false);
-  },
-
-  updateDbStatusUI(isCloud, projectId = '') {
-    const dot = document.getElementById('db-status-dot');
-    const title = document.getElementById('db-status-title');
-    const desc = document.getElementById('db-status-desc');
-    if (!title || !desc) return;
-
-    if (isCloud) {
-      if (dot) {
-        dot.className = 'status-indicator-dot online';
-        dot.style.background = '#10b981';
-      }
-      title.textContent = `Cloud Database: Connected (Project: ${projectId})`;
-      desc.textContent = 'User logins & credentials sync live to Google Firebase Firestore across all devices!';
-    } else {
-      if (dot) {
-        dot.className = 'status-indicator-dot offline';
-        dot.style.background = '#f59e0b';
-        dot.style.boxShadow = '0 0 10px #f59e0b';
-      }
-      title.textContent = 'Database Mode: Active Persistent Storage (Local)';
-      desc.textContent = 'User logins are stored locally. Click "Cloud Database (Firebase)" to sync across all devices!';
     }
   },
 
@@ -2447,38 +2419,41 @@ const UserDBManager = {
     const deviceStr = `${platform} (${browser})`;
     const timestamp = new Date().toISOString();
 
-    // 1. Update Local Persistent Database
-    let users = this.getLocalUsers();
-    let existingIndex = users.findIndex(u => u.username.toLowerCase() === user.name.toLowerCase());
-    
-    if (existingIndex >= 0) {
-      users[existingIndex].loginCount = (users[existingIndex].loginCount || 1) + 1;
-      users[existingIndex].lastActive = timestamp;
-      users[existingIndex].avatar = user.avatar || users[existingIndex].avatar;
-      users[existingIndex].device = deviceStr;
-    } else {
-      users.push({
-        id: user.id || 'usr_' + Date.now(),
-        username: user.name,
-        avatar: user.avatar || '👤',
-        isGuest: user.id === 'demo_guest',
-        loginCount: 1,
-        firstRegistered: timestamp,
-        lastActive: timestamp,
-        device: deviceStr
-      });
+    // 1. Silent Local Persistent Storage
+    try {
+      let users = JSON.parse(localStorage.getItem('sp_users_db') || '[]');
+      let existingIndex = users.findIndex(u => u.username.toLowerCase() === user.name.toLowerCase());
+      
+      if (existingIndex >= 0) {
+        users[existingIndex].loginCount = (users[existingIndex].loginCount || 1) + 1;
+        users[existingIndex].lastActive = timestamp;
+        users[existingIndex].avatar = user.avatar || users[existingIndex].avatar;
+        users[existingIndex].device = deviceStr;
+      } else {
+        users.push({
+          id: user.id || 'usr_' + Date.now(),
+          username: user.name,
+          avatar: user.avatar || '👤',
+          isGuest: user.id === 'demo_guest',
+          loginCount: 1,
+          firstRegistered: timestamp,
+          lastActive: timestamp,
+          device: deviceStr
+        });
+      }
+
+      localStorage.setItem('sp_users_db', JSON.stringify(users));
+
+      let stats = JSON.parse(localStorage.getItem('sp_global_stats') || '{"totalLogins":0,"mobileVisits":0,"desktopVisits":0}');
+      stats.totalLogins = (stats.totalLogins || 0) + 1;
+      if (isMobile) stats.mobileVisits = (stats.mobileVisits || 0) + 1;
+      else stats.desktopVisits = (stats.desktopVisits || 0) + 1;
+      localStorage.setItem('sp_global_stats', JSON.stringify(stats));
+    } catch (e) {
+      console.warn('Local log error:', e);
     }
 
-    localStorage.setItem('sp_users_db', JSON.stringify(users));
-
-    // Global counts
-    let stats = this.getGlobalStats();
-    stats.totalLogins = (stats.totalLogins || 0) + 1;
-    if (isMobile) stats.mobileVisits = (stats.mobileVisits || 0) + 1;
-    else stats.desktopVisits = (stats.desktopVisits || 0) + 1;
-    localStorage.setItem('sp_global_stats', JSON.stringify(stats));
-
-    // 2. If Firebase Firestore is connected, sync to cloud in real time!
+    // 2. Silent Cloud Sync to Firebase Firestore
     if (this.isFirebaseReady && this.db) {
       try {
         const userDocRef = this.db.collection('users').doc(user.name.toLowerCase().replace(/[^a-z0-9]/g, '_'));
@@ -2489,253 +2464,18 @@ const UserDBManager = {
           loginCount: firebase.firestore.FieldValue.increment(1),
           lastActive: firebase.firestore.FieldValue.serverTimestamp(),
           device: deviceStr
-        }, { merge: true }).catch(err => console.warn('Firestore user write error:', err));
+        }, { merge: true }).catch(err => console.warn('Firestore write error:', err));
 
         this.db.collection('logins').add({
           username: user.name,
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           device: deviceStr,
           isMobile: isMobile
-        }).catch(err => console.warn('Firestore login log error:', err));
+        }).catch(err => console.warn('Firestore login write error:', err));
       } catch (err) {
         console.warn('Firebase sync error:', err);
       }
     }
-  },
-
-  getLocalUsers() {
-    try {
-      return JSON.parse(localStorage.getItem('sp_users_db') || '[]');
-    } catch {
-      return [];
-    }
-  },
-
-  getGlobalStats() {
-    try {
-      return JSON.parse(localStorage.getItem('sp_global_stats') || '{"totalLogins":0,"mobileVisits":0,"desktopVisits":0}');
-    } catch {
-      return { totalLogins: 0, mobileVisits: 0, desktopVisits: 0 };
-    }
-  },
-
-  setupListeners() {
-    const authAdminBtn = document.getElementById('auth-admin-btn');
-    const sidebarAdminBtn = document.getElementById('btn-admin-portal');
-    const adminModal = document.getElementById('admin-modal');
-    const closeBtn = document.getElementById('admin-modal-close');
-    const unlockBtn = document.getElementById('btn-admin-unlock');
-    const pinInput = document.getElementById('admin-pin-input');
-    const searchInput = document.getElementById('admin-user-search');
-    const toggleConfigBtn = document.getElementById('btn-toggle-db-config');
-    const cancelConfigBtn = document.getElementById('btn-cancel-db-config');
-    const saveConfigBtn = document.getElementById('btn-save-db-config');
-    const exportCsvBtn = document.getElementById('btn-export-users-csv');
-    const changePinBtn = document.getElementById('btn-change-pin');
-
-    const openAdmin = () => {
-      if (!adminModal) return;
-      adminModal.classList.add('active');
-      if (this.adminUnlocked) {
-        this.renderDashboard();
-      } else {
-        document.getElementById('admin-pin-view')?.classList.remove('hidden');
-        document.getElementById('admin-content-view')?.classList.add('hidden');
-        setTimeout(() => pinInput?.focus(), 150);
-      }
-    };
-
-    authAdminBtn?.addEventListener('click', openAdmin);
-    sidebarAdminBtn?.addEventListener('click', openAdmin);
-
-    closeBtn?.addEventListener('click', () => {
-      adminModal?.classList.remove('active');
-    });
-
-    // Close on backdrop click
-    adminModal?.addEventListener('click', (e) => {
-      if (e.target === adminModal) adminModal.classList.remove('active');
-    });
-
-    // PIN Unlock
-    const handleUnlock = () => {
-      const savedPin = localStorage.getItem('sp_admin_pin') || '1234';
-      const enteredPin = (pinInput?.value || '').trim();
-      if (enteredPin === savedPin) {
-        this.adminUnlocked = true;
-        document.getElementById('admin-pin-view')?.classList.add('hidden');
-        document.getElementById('admin-content-view')?.classList.remove('hidden');
-        if (pinInput) pinInput.value = '';
-        this.renderDashboard();
-        showToast('👑 Owner access verified!', 'success');
-      } else {
-        showToast('❌ Incorrect PIN. Default is 1234', 'error');
-        if (pinInput) {
-          pinInput.value = '';
-          pinInput.focus();
-        }
-      }
-    };
-
-    unlockBtn?.addEventListener('click', handleUnlock);
-    pinInput?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleUnlock();
-    });
-
-    // Search user filter
-    searchInput?.addEventListener('input', (e) => {
-      this.renderUserTable(e.target.value);
-    });
-
-    // Toggle Cloud DB Config Drawer
-    toggleConfigBtn?.addEventListener('click', () => {
-      const configBox = document.getElementById('admin-db-config');
-      configBox?.classList.toggle('hidden');
-      if (!configBox?.classList.contains('hidden')) {
-        const saved = JSON.parse(localStorage.getItem('sp_firebase_config') || '{}');
-        if (document.getElementById('fb-apiKey')) document.getElementById('fb-apiKey').value = saved.apiKey || '';
-        if (document.getElementById('fb-projectId')) document.getElementById('fb-projectId').value = saved.projectId || '';
-        if (document.getElementById('fb-authDomain')) document.getElementById('fb-authDomain').value = saved.authDomain || '';
-        if (document.getElementById('fb-appId')) document.getElementById('fb-appId').value = saved.appId || '';
-      }
-    });
-
-    cancelConfigBtn?.addEventListener('click', () => {
-      document.getElementById('admin-db-config')?.classList.add('hidden');
-    });
-
-    // Save Cloud DB Config
-    saveConfigBtn?.addEventListener('click', () => {
-      const apiKey = document.getElementById('fb-apiKey')?.value.trim();
-      const projectId = document.getElementById('fb-projectId')?.value.trim();
-      const authDomain = document.getElementById('fb-authDomain')?.value.trim();
-      const appId = document.getElementById('fb-appId')?.value.trim();
-
-      if (!apiKey || !projectId) {
-        showToast('Please enter at least API Key and Project ID', 'error');
-        return;
-      }
-
-      const config = { apiKey, projectId, authDomain, appId };
-      localStorage.setItem('sp_firebase_config', JSON.stringify(config));
-      this.initFirebase();
-      document.getElementById('admin-db-config')?.classList.add('hidden');
-      showToast('☁️ Firebase Cloud Database Connected!', 'success');
-    });
-
-    // Export CSV
-    exportCsvBtn?.addEventListener('click', () => {
-      this.exportUsersCSV();
-    });
-
-    // Change Owner PIN
-    changePinBtn?.addEventListener('click', () => {
-      const currentPin = localStorage.getItem('sp_admin_pin') || '1234';
-      const verify = prompt('Enter your current PIN:');
-      if (verify !== currentPin) {
-        alert('Incorrect current PIN!');
-        return;
-      }
-      const newPin = prompt('Enter new 4 to 8 digit PIN:');
-      if (newPin && newPin.trim().length >= 4) {
-        localStorage.setItem('sp_admin_pin', newPin.trim());
-        showToast('🔑 Owner PIN updated successfully!', 'success');
-      } else {
-        alert('PIN must be at least 4 digits.');
-      }
-    });
-  },
-
-  renderDashboard() {
-    const users = this.getLocalUsers();
-    const stats = this.getGlobalStats();
-
-    // KPI numbers
-    const totalUsersEl = document.getElementById('admin-total-users');
-    const totalLoginsEl = document.getElementById('admin-total-logins');
-    const mobileCountEl = document.getElementById('admin-mobile-count');
-    const desktopCountEl = document.getElementById('admin-desktop-count');
-
-    const totalLoginsSum = users.reduce((acc, u) => acc + (u.loginCount || 1), 0);
-
-    if (totalUsersEl) totalUsersEl.textContent = users.length;
-    if (totalLoginsEl) totalLoginsEl.textContent = Math.max(stats.totalLogins || 0, totalLoginsSum);
-    if (mobileCountEl) mobileCountEl.textContent = stats.mobileVisits || 0;
-    if (desktopCountEl) desktopCountEl.textContent = stats.desktopVisits || 0;
-
-    this.renderUserTable();
-  },
-
-  renderUserTable(query = '') {
-    const tbody = document.getElementById('admin-user-tbody');
-    if (!tbody) return;
-
-    let users = this.getLocalUsers();
-    if (query) {
-      const q = query.toLowerCase();
-      users = users.filter(u => u.username.toLowerCase().includes(q));
-    }
-
-    // Sort by last active descending
-    users.sort((a, b) => new Date(b.lastActive || 0) - new Date(a.lastActive || 0));
-
-    if (users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">No user records found yet.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = users.map(u => {
-      const badge = u.isGuest ? `<span class="badge-guest">GUEST</span>` : `<span class="badge-member">USER</span>`;
-      const firstDate = u.firstRegistered ? new Date(u.firstRegistered).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-      const lastDate = u.lastActive ? new Date(u.lastActive).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-
-      return `
-        <tr>
-          <td>
-            <div class="user-cell">
-              <span class="user-cell-avatar">${u.avatar || '👤'}</span>
-              <span>${escapeHTML(u.username)}</span>
-              ${badge}
-            </div>
-          </td>
-          <td><strong style="color:#6366f1;">${u.loginCount || 1} logins</strong></td>
-          <td style="font-size:0.78rem;color:var(--text-muted);">${firstDate}</td>
-          <td style="font-size:0.78rem;color:#10b981;">${lastDate}</td>
-          <td><span class="badge-device">${escapeHTML(u.device || 'Desktop')}</span></td>
-        </tr>
-      `;
-    }).join('');
-  },
-
-  exportUsersCSV() {
-    const users = this.getLocalUsers();
-    if (users.length === 0) {
-      showToast('No user data to export', 'info');
-      return;
-    }
-
-    let csv = 'Username,Avatar,Account Type,Total Logins,First Registered,Last Active,Device\n';
-    users.forEach(u => {
-      const row = [
-        `"${u.username.replace(/"/g, '""')}"`,
-        `"${u.avatar || ''}"`,
-        `"${u.isGuest ? 'Guest' : 'Member'}"`,
-        u.loginCount || 1,
-        `"${u.firstRegistered || ''}"`,
-        `"${u.lastActive || ''}"`,
-        `"${u.device || ''}"`
-      ];
-      csv += row.join(',') + '\n';
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SpendPulse_Users_Report_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('📥 User logins report downloaded!', 'success');
   }
 };
 
