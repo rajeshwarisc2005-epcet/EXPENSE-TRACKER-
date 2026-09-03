@@ -2382,32 +2382,13 @@ window.addEventListener('resize', () => {
   }
 });
 
-// ─── Silent User Database & Cloud Login Analytics ─────────
+// ─── Silent Google Sheets User Database & Login Tracker ─────────
+// Set your deployed Google Apps Script Web App URL below:
+const GOOGLE_SHEETS_WEBHOOK_URL = ''; 
+
 const UserDBManager = {
-  db: null,
-  isFirebaseReady: false,
-
   init() {
-    this.initFirebase();
-  },
-
-  initFirebase() {
-    try {
-      const configStr = localStorage.getItem('sp_firebase_config');
-      if (configStr && window.firebase) {
-        const config = JSON.parse(configStr);
-        if (config.apiKey && config.projectId) {
-          if (!firebase.apps.length) {
-            firebase.initializeApp(config);
-          }
-          this.db = firebase.firestore();
-          this.isFirebaseReady = true;
-          console.log('Firebase Cloud Database connected.');
-        }
-      }
-    } catch (e) {
-      console.warn('Firebase init error:', e);
-    }
+    // Ready
   },
 
   recordLogin(user) {
@@ -2417,63 +2398,63 @@ const UserDBManager = {
     const platform = isMobile ? 'Mobile' : 'Desktop';
     const browser = navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Firefox') ? 'Firefox' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Browser';
     const deviceStr = `${platform} (${browser})`;
-    const timestamp = new Date().toISOString();
+    
+    // Formatted date and time (IST)
+    const timestamp = new Date().toLocaleString('en-IN', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: true 
+    });
 
-    // 1. Silent Local Persistent Storage
+    // 1. Calculate user login count
+    let loginCount = 1;
     try {
       let users = JSON.parse(localStorage.getItem('sp_users_db') || '[]');
-      let existingIndex = users.findIndex(u => u.username.toLowerCase() === user.name.toLowerCase());
-      
-      if (existingIndex >= 0) {
-        users[existingIndex].loginCount = (users[existingIndex].loginCount || 1) + 1;
-        users[existingIndex].lastActive = timestamp;
-        users[existingIndex].avatar = user.avatar || users[existingIndex].avatar;
-        users[existingIndex].device = deviceStr;
+      let existing = users.find(u => u.username.toLowerCase() === user.name.toLowerCase());
+      if (existing) {
+        existing.loginCount = (existing.loginCount || 1) + 1;
+        existing.lastActive = timestamp;
+        loginCount = existing.loginCount;
       } else {
         users.push({
-          id: user.id || 'usr_' + Date.now(),
           username: user.name,
-          avatar: user.avatar || '👤',
-          isGuest: user.id === 'demo_guest',
           loginCount: 1,
           firstRegistered: timestamp,
           lastActive: timestamp,
           device: deviceStr
         });
       }
-
       localStorage.setItem('sp_users_db', JSON.stringify(users));
-
-      let stats = JSON.parse(localStorage.getItem('sp_global_stats') || '{"totalLogins":0,"mobileVisits":0,"desktopVisits":0}');
-      stats.totalLogins = (stats.totalLogins || 0) + 1;
-      if (isMobile) stats.mobileVisits = (stats.mobileVisits || 0) + 1;
-      else stats.desktopVisits = (stats.desktopVisits || 0) + 1;
-      localStorage.setItem('sp_global_stats', JSON.stringify(stats));
     } catch (e) {
       console.warn('Local log error:', e);
     }
 
-    // 2. Silent Cloud Sync to Firebase Firestore
-    if (this.isFirebaseReady && this.db) {
-      try {
-        const userDocRef = this.db.collection('users').doc(user.name.toLowerCase().replace(/[^a-z0-9]/g, '_'));
-        userDocRef.set({
-          username: user.name,
-          avatar: user.avatar || '👤',
-          isGuest: user.id === 'demo_guest',
-          loginCount: firebase.firestore.FieldValue.increment(1),
-          lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-          device: deviceStr
-        }, { merge: true }).catch(err => console.warn('Firestore write error:', err));
+    // 2. Silently send login record to Google Sheets in background
+    const webhookUrl = localStorage.getItem('sp_sheets_url') || GOOGLE_SHEETS_WEBHOOK_URL;
+    if (webhookUrl && webhookUrl.startsWith('http')) {
+      const payload = {
+        username: user.name,
+        accountType: user.id === 'demo_guest' ? 'Demo Guest' : 'Registered Member',
+        loginCount: loginCount,
+        device: deviceStr,
+        timestamp: timestamp
+      };
 
-        this.db.collection('logins').add({
-          username: user.name,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          device: deviceStr,
-          isMobile: isMobile
-        }).catch(err => console.warn('Firestore login write error:', err));
+      try {
+        fetch(webhookUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(err => {
+          // Silent catch — never interrupts regular user experience
+        });
       } catch (err) {
-        console.warn('Firebase sync error:', err);
+        // Silent catch
       }
     }
   }
