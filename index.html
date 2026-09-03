@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="description" content="Track and manage your expenses with a beautiful, interactive dashboard. Categorize spending, set budgets, and visualize your financial habits.">
+  <title>SpendPulse — Smart Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260903_v3">
+</head>
+<body>
+  <!-- Animated Background Layers -->
+  <div class="bg-layers">
+    <!-- Aurora gradient mesh -->
+    <div class="aurora"></div>
+    <div class="aurora aurora-2"></div>
+    <!-- Particle canvas -->
+    <canvas id="particle-canvas"></canvas>
+    <!-- Floating currency symbols -->
+    <div class="floating-symbols" id="floating-symbols"></div>
+    <!-- Animated grid -->
+    <div class="grid-overlay"></div>
+    <!-- Mouse glow follower -->
+    <div class="mouse-glow" id="mouse-glow"></div>
+    <!-- Ambient orbs -->
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+    <div class="ambient-orb orb-4"></div>
+  </div>
+
+  <!-- User Authentication Overlay -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo">
+          <svg width="42" height="42" viewBox="0 0 36 36" fill="none">
+            <rect width="36" height="36" rx="10" fill="url(#authBrandGrad)"/>
+            <circle cx="18" cy="18" r="4" fill="#ffffff"/>
+            <path d="M18 7v3M18 26v3M7 18h3M26 18h3M10.22 10.22l2.12 2.12M23.66 23.66l2.12 2.12M10.22 25.78l2.12-2.12M23.66 12.34l2.12-2.12" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="authBrandGrad" x1="0" y1="0" x2="36" y2="36">
+                <stop stop-color="#5b5ff5"/>
+                <stop offset="1" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h2>Welcome to SpendPulse</h2>
+        <p>Sign in to your account or create a new profile with a fresh interface</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login">Sign In</button>
+        <button class="auth-tab" id="tab-signup">New Account (Fresh)</button>
+      </div>
+
+      <form id="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label for="auth-username">USERNAME</label>
+          <input type="text" id="auth-username" placeholder="e.g. Alex" required>
+        </div>
+
+        <div class="form-group" id="group-avatar" style="display:none;">
+          <label>Select Profile Avatar</label>
+          <div class="avatar-picker">
+            <span class="avatar-opt selected" data-avatar="😎">😎</span>
+            <span class="avatar-opt" data-avatar="🚀">🚀</span>
+            <span class="avatar-opt" data-avatar="🦊">🦊</span>
+            <span class="avatar-opt" data-avatar="💎">💎</span>
+            <span class="avatar-opt" data-avatar="👑">👑</span>
+            <span class="avatar-opt" data-avatar="🐱">🐱</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary auth-submit-btn" id="auth-submit-btn">Sign In to Account</button>
+      </form>
+
+      <div class="auth-divider">
+        <span>OR</span>
+      </div>
+
+      <button type="button" class="btn-secondary guest-btn" id="btn-guest-login">
+        <span class="guest-icon">⚡</span> Quick Demo Guest Login
+      </button>
+    </div>
+  </div>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Sidebar Backdrop for Mobile Drawer -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="8" fill="url(#brandGrad)"/>
+            <path d="M8 14h12M14 8v12M10 10l8 8M18 10l-8 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            <circle cx="14" cy="14" r="4" stroke="#fff" stroke-width="1.5"/>
+            <defs>
+              <linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#a855f7"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="brand-name">SpendPulse</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="expenses" id="nav-expenses">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Expenses</span>
+        </button>
+        <button class="nav-item" data-view="analytics" id="nav-analytics">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Analytics</span>
+        </button>
+        <button class="nav-item" data-view="budgets" id="nav-budgets">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
+          <span>Budgets</span>
+        </button>
+        <button class="nav-item" data-view="recurring" id="nav-recurring">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <span>Recurring & Bills</span>
+        </button>
+        <button class="nav-item" data-view="mutual-funds" id="nav-mutual-funds">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          <span>Mutual Funds & SIPs</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="theme-toggle-wrapper">
+          <span class="theme-label">Theme</span>
+          <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
+            <div class="theme-toggle-track">
+              <span class="theme-icon sun">☀️</span>
+              <span class="theme-icon moon">🌙</span>
+              <div class="theme-toggle-thumb"></div>
+            </div>
+          </button>
+        </div>
+        <div class="currency-selector">
+          <label for="currency-select">Currency</label>
+          <select id="currency-select">
+            <optgroup label="Asia">
+              <option value="INR" selected>₹ INR — Indian Rupee</option>
+              <option value="JPY">¥ JPY — Japanese Yen</option>
+              <option value="CNY">¥ CNY — Chinese Yuan</option>
+              <option value="KRW">₩ KRW — South Korean Won</option>
+              <option value="SGD">S$ SGD — Singapore Dollar</option>
+              <option value="THB">฿ THB — Thai Baht</option>
+              <option value="MYR">RM MYR — Malaysian Ringgit</option>
+              <option value="IDR">Rp IDR — Indonesian Rupiah</option>
+              <option value="PHP">₱ PHP — Philippine Peso</option>
+              <option value="BDT">৳ BDT — Bangladeshi Taka</option>
+              <option value="PKR">₨ PKR — Pakistani Rupee</option>
+              <option value="AED">د.إ AED — UAE Dirham</option>
+              <option value="SAR">﷼ SAR — Saudi Riyal</option>
+            </optgroup>
+            <optgroup label="Americas">
+              <option value="USD">$ USD — US Dollar</option>
+              <option value="CAD">C$ CAD — Canadian Dollar</option>
+              <option value="BRL">R$ BRL — Brazilian Real</option>
+              <option value="MXN">$ MXN — Mexican Peso</option>
+              <option value="ARS">$ ARS — Argentine Peso</option>
+            </optgroup>
+            <optgroup label="Europe">
+              <option value="EUR">€ EUR — Euro</option>
+              <option value="GBP">£ GBP — British Pound</option>
+              <option value="CHF">CHF — Swiss Franc</option>
+              <option value="SEK">kr SEK — Swedish Krona</option>
+              <option value="NOK">kr NOK — Norwegian Krone</option>
+              <option value="PLN">zł PLN — Polish Zloty</option>
+              <option value="TRY">₺ TRY — Turkish Lira</option>
+              <option value="RUB">₽ RUB — Russian Ruble</option>
+            </optgroup>
+            <optgroup label="Africa & Oceania">
+              <option value="ZAR">R ZAR — South African Rand</option>
+              <option value="NGN">₦ NGN — Nigerian Naira</option>
+              <option value="EGP">E£ EGP — Egyptian Pound</option>
+              <option value="KES">KSh KES — Kenyan Shilling</option>
+              <option value="AUD">A$ AUD — Australian Dollar</option>
+              <option value="NZD">NZ$ NZD — New Zealand Dollar</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="user-profile-badge" id="user-profile-badge">
+          <div class="user-info">
+            <span class="user-avatar" id="user-avatar">👤</span>
+            <span class="user-name" id="user-name">Guest User</span>
+          </div>
+          <button class="btn-logout" id="btn-logout" title="Log out & Lock Data">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="main-header">
+        <div class="header-left">
+          <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="header-greeting">
+            <div class="header-title-row">
+              <h1 id="header-title">Dashboard</h1>
+              <span class="app-brand-badge">SpendPulse ✦</span>
+            </div>
+            <p id="header-date"></p>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="month-selector">
+            <button class="month-nav" id="prev-month" aria-label="Previous month">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span id="current-month-label" class="month-label"></span>
+            <button class="month-nav" id="next-month" aria-label="Next month">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <button class="btn-add-expense" id="btn-add-expense">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Expense</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard View -->
+      <section class="view active" id="view-dashboard">
+        <!-- Motivational Quote Banner -->
+        <div class="quote-banner" id="quote-banner">
+          <div class="quote-icon">💡</div>
+          <div class="quote-content">
+            <p class="quote-text" id="quote-text">"Do not save what is left after spending, but spend what is left after saving."</p>
+            <span class="quote-author" id="quote-author">— Warren Buffett</span>
+          </div>
+          <button class="btn-next-quote" id="btn-next-quote" title="New Financial Wisdom">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16"/></svg>
+          </button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" id="stat-total">
+            <div class="stat-icon" style="--accent: #6366f1;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total Spent</span>
+              <span class="stat-value" id="total-spent">₹0</span>
+              <span class="stat-change" id="total-change"></span>
+            </div>
+          </div>
+          <div class="stat-card" id="stat-avg">
+            <div class="stat-icon" style="--accent: #a855f7;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Daily Average</span>
+              <span class="stat-value" id="daily-avg">₹0</span>
+            </div>
+          </div>
+          <div class="stat-card" id="stat-highest">
+            <div class="stat-icon" style="--accent: #f43f5e;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Highest Expense</span>
+              <span class="stat-value" id="highest-expense">₹0</span>
+            </div>
+          </div>
+          <div class="stat-card" id="stat-count">
+            <div class="stat-icon" style="--accent: #10b981;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Transactions</span>
+              <span class="stat-value" id="transaction-count">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card chart-card">
+            <div class="card-header">
+              <h2>Spending Trend</h2>
+              <div class="chart-toggle">
+                <button class="chart-btn active" data-chart="daily" id="chart-daily-btn">Daily</button>
+                <button class="chart-btn" data-chart="weekly" id="chart-weekly-btn">Weekly</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="trend-chart"></canvas>
+            </div>
+          </div>
+          <div class="card donut-card">
+            <div class="card-header">
+              <h2>By Category</h2>
+            </div>
+            <div class="donut-container">
+              <canvas id="category-chart"></canvas>
+              <div class="donut-center" id="donut-center">
+                <span class="donut-total" id="donut-total">₹0</span>
+                <span class="donut-label">Total</span>
+              </div>
+            </div>
+            <div class="category-legend" id="category-legend"></div>
+          </div>
+        </div>
+
+        <div class="card recent-card">
+          <div class="card-header">
+            <h2>Recent Expenses</h2>
+            <button class="link-btn" id="view-all-expenses">View All →</button>
+          </div>
+          <div class="expense-list" id="recent-expenses"></div>
+        </div>
+      </section>
+
+      <!-- Expenses View -->
+      <section class="view" id="view-expenses">
+        <div class="expenses-toolbar">
+          <div class="search-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input" placeholder="Search expenses..." autocomplete="off">
+          </div>
+          <div class="filter-group">
+            <select id="filter-category" class="filter-select">
+              <option value="all">All Categories</option>
+            </select>
+            <select id="sort-by" class="filter-select">
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="amount-desc">Highest Amount</option>
+              <option value="amount-asc">Lowest Amount</option>
+            </select>
+          </div>
+        </div>
+        <div class="expense-list full-list" id="all-expenses"></div>
+        <div class="empty-state" id="empty-expenses" style="display:none;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          <h3>No expenses yet</h3>
+          <p>Click "Add Expense" to start tracking your spending</p>
+        </div>
+      </section>
+
+      <!-- Analytics View -->
+      <section class="view" id="view-analytics">
+        <div class="analytics-grid">
+          <div class="card">
+            <div class="card-header"><h2>Monthly Comparison</h2></div>
+            <div class="chart-container tall">
+              <canvas id="monthly-comparison-chart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h2>Category Breakdown</h2></div>
+            <div class="category-bars" id="category-bars"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h2>Top Expenses</h2></div>
+            <div class="top-expenses-list" id="top-expenses"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h2>Spending Insights</h2></div>
+            <div class="insights-list" id="insights-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Budgets View -->
+      <section class="view" id="view-budgets">
+        <div class="budget-header-bar">
+          <h2>Monthly Budgets</h2>
+          <button class="btn-add-expense" id="btn-add-budget">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Set Budget</span>
+          </button>
+        </div>
+        <div class="budgets-grid" id="budgets-grid"></div>
+        <div class="empty-state" id="empty-budgets" style="display:none;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
+          <h3>No budgets set</h3>
+          <p>Set budgets to track your spending limits per category</p>
+        </div>
+      </section>
+
+      <!-- Recurring Subscriptions & Bills View -->
+      <section class="view" id="view-recurring">
+        <div class="budget-header-bar">
+          <h2>Recurring Subscriptions & Bills</h2>
+          <button class="btn-add-expense" id="btn-add-recurring">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Subscription / Bill</span>
+          </button>
+        </div>
+        
+        <div class="recurring-summary-banner">
+          <div class="summary-pill">
+            <span class="summary-label">Monthly Fixed Costs</span>
+            <span class="summary-value" id="recurring-monthly-total">₹0</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">Active Services</span>
+            <span class="summary-value" id="recurring-count">0</span>
+          </div>
+        </div>
+
+        <div class="budgets-grid" id="recurring-grid"></div>
+        <div class="empty-state" id="empty-recurring" style="display:none;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <h3>No recurring bills or subscriptions</h3>
+          <p>Keep track of Netflix, Spotify, Rent, and Utilities effortlessly</p>
+        </div>
+      </section>
+
+      <!-- Mutual Funds & Investments View -->
+      <section class="view" id="view-mutual-funds">
+        <div class="budget-header-bar">
+          <h2>Mutual Funds & SIP Portfolio</h2>
+          <button class="btn-add-expense" id="btn-add-fund">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Mutual Fund</span>
+          </button>
+        </div>
+
+        <div class="recurring-summary-banner">
+          <div class="summary-pill">
+            <span class="summary-label">Total Invested</span>
+            <span class="summary-value" id="fund-invested-total">₹0</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">Current Portfolio Value</span>
+            <span class="summary-value" id="fund-current-total">₹0</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">Total Returns</span>
+            <span class="summary-value" id="fund-returns-total">₹0</span>
+          </div>
+        </div>
+
+        <div class="budgets-grid" id="funds-grid"></div>
+        <div class="empty-state" id="empty-funds" style="display:none;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          <h3>No Mutual Fund investments tracked yet</h3>
+          <p>Track your SIPs, Index Funds, Equity & Debt investments</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add Recurring Subscription Modal -->
+  <div class="modal-overlay" id="recurring-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Add Recurring Bill / Subscription</h2>
+        <button class="modal-close" id="recurring-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="recurring-form" autocomplete="off">
+        <div class="form-group">
+          <label for="recurring-title">Name / Service</label>
+          <input type="text" id="recurring-title" placeholder="e.g., Netflix Premium, WiFi Bill" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="recurring-amount">Amount</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix recurring-prefix">₹</span>
+              <input type="number" id="recurring-amount" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="recurring-frequency">Frequency</label>
+            <select id="recurring-frequency" required>
+              <option value="monthly" selected>Monthly</option>
+              <option value="yearly">Yearly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="recurring-date">Next Due Date</label>
+            <input type="date" id="recurring-date" required>
+          </div>
+          <div class="form-group">
+            <label for="recurring-category">Category</label>
+            <select id="recurring-category" required></select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-recurring-cancel">Cancel</button>
+          <button type="submit" class="btn-primary">Save Subscription</button>
+        </div>
+      </form>
+    </div>
+  </div>
+    </main>
+
+
+  </div>
+
+  <!-- Add/Edit Expense Modal -->
+  <div class="modal-overlay" id="expense-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Expense</h2>
+        <button class="modal-close" id="modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="expense-form" autocomplete="off">
+        <input type="hidden" id="expense-id">
+        <div class="form-group">
+          <label for="expense-title">Title</label>
+          <input type="text" id="expense-title" placeholder="e.g., Grocery Shopping" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expense-amount">Amount</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix" id="amount-prefix">₹</span>
+              <input type="number" id="expense-amount" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="expense-date">Date</label>
+            <input type="date" id="expense-date" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="expense-category">Category</label>
+          <div class="category-grid" id="category-picker">
+            <!-- Categories will be populated by JS -->
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="expense-notes">Notes (optional)</label>
+          <textarea id="expense-notes" placeholder="Add any notes..." rows="2"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-cancel">Cancel</button>
+          <button type="submit" class="btn-primary" id="btn-save">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Budget Modal -->
+  <div class="modal-overlay" id="budget-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Set Budget</h2>
+        <button class="modal-close" id="budget-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="budget-form" autocomplete="off">
+        <div class="form-group">
+          <label for="budget-category">Category</label>
+          <select id="budget-category" required></select>
+        </div>
+        <div class="form-group">
+          <label for="budget-amount">Monthly Limit</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix budget-prefix">₹</span>
+            <input type="number" id="budget-amount" placeholder="0.00" min="0" step="0.01" required>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-budget-cancel">Cancel</button>
+          <button type="submit" class="btn-primary">Save Budget</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Mutual Fund Modal -->
+  <div class="modal-overlay" id="fund-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Add Mutual Fund Investment</h2>
+        <button class="modal-close" id="fund-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="fund-form" autocomplete="off">
+        <div class="form-group">
+          <label for="fund-name">Fund Name</label>
+          <input type="text" id="fund-name" placeholder="e.g., Nifty 50 Index Fund, Parag Parikh Flexi Cap" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="fund-category">Scheme Category</label>
+            <select id="fund-category" required>
+              <option value="Index Fund" selected>📈 Index Fund</option>
+              <option value="Flexi Cap">📊 Flexi Cap</option>
+              <option value="Large Cap">🏢 Large Cap</option>
+              <option value="Mid Cap">🚀 Mid Cap</option>
+              <option value="Small Cap">⚡ Small Cap</option>
+              <option value="ELSS Tax Saver">🛡️ ELSS Tax Saver</option>
+              <option value="Debt Fund">💵 Debt Fund</option>
+              <option value="Gold ETF">🪙 Gold ETF</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="fund-type">Investment Type</label>
+            <select id="fund-type" required>
+              <option value="Monthly SIP" selected>Monthly SIP</option>
+              <option value="Lump Sum">Lump Sum</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="fund-invested">Invested Amount</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix fund-prefix">₹</span>
+              <input type="number" id="fund-invested" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="fund-current">Current Market Value</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix fund-prefix">₹</span>
+              <input type="number" id="fund-current" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-fund-cancel">Cancel</button>
+          <button type="submit" class="btn-primary">Save Investment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Delete Expense</h2>
+        <button class="modal-close" id="delete-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <p class="delete-msg">Are you sure you want to delete this expense? This action cannot be undone.</p>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="btn-delete-cancel">Cancel</button>
+        <button type="button" class="btn-danger" id="btn-delete-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PulseAI Chatbot Widget -->
+  <div class="chatbot-widget" id="chatbot-widget">
+    <!-- Chatbot Window -->
+    <div class="chatbot-window hidden" id="chatbot-window">
+      <div class="chatbot-header">
+        <div class="chatbot-title">
+          <div class="chatbot-avatar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+              <rect x="4" y="8" width="16" height="12" rx="2"/>
+              <path d="M9 13v2M15 13v2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="chatbot-name-row">
+              <h3>PulseAI Assistant</h3>
+              <span class="gemini-badge">Gemini 3.6 Flash</span>
+            </div>
+            <span class="chatbot-status"><span class="status-dot"></span> Powered by Google Gemini 3.6</span>
+          </div>
+        </div>
+        <div class="chatbot-header-actions">
+          <button class="chatbot-icon-btn" id="chatbot-settings-toggle" title="Gemini API Settings" aria-label="Gemini API Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <button class="chatbot-close" id="chatbot-close" aria-label="Close chatbot">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Popover -->
+      <div class="chatbot-key-popover hidden" id="chatbot-key-popover">
+        <div class="key-popover-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <label for="gemini-api-key">🔑 Google Gemini API Key (Optional)</label>
+          <button type="button" class="chatbot-icon-btn" id="popover-close-btn" aria-label="Close settings">&times;</button>
+        </div>
+        <div class="key-input-group">
+          <input type="text" id="gemini-api-key" placeholder="Paste AIzaSy... key here" autocomplete="off">
+          <button type="button" id="btn-save-key" class="btn-xs-primary">Save Key</button>
+        </div>
+        <p class="key-hint">Leave blank to use default built-in AI mode, or add your Google Gemini API Key for unlimited custom AI responses.</p>
+      </div>
+      <div class="chatbot-messages" id="chatbot-messages">
+        <!-- Welcome message -->
+        <div class="chat-message bot">
+          <div class="chat-avatar-sm">✨</div>
+          <div class="chat-bubble">
+            Hello! I'm <strong>PulseAI</strong>, your financial assistant. How can I help you manage your money today?
+          </div>
+        </div>
+      </div>
+      <!-- Quick Chips -->
+      <div class="chatbot-chips" id="chatbot-chips">
+        <button class="chip-btn" data-query="Monthly summary">📊 Monthly summary</button>
+        <button class="chip-btn" data-query="Top spending category">🔥 Top category</button>
+        <button class="chip-btn" data-query="Budget status">🎯 Budget status</button>
+        <button class="chip-btn" data-query="How to save money?">💡 Saving tips</button>
+      </div>
+      <!-- Input form -->
+      <form class="chatbot-input-form" id="chatbot-form">
+        <input type="text" id="chatbot-input" placeholder="Ask anything or e.g. 'Add 50 for Coffee'..." autocomplete="off">
+        <button type="submit" id="chatbot-send" aria-label="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <!-- Chatbot Floating Toggle Button -->
+    <button class="chatbot-trigger" id="chatbot-trigger" aria-label="Open AI Financial Assistant">
+      <div class="chatbot-trigger-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="chat-badge" id="chat-badge">1</span>
+      </div>
+      <span class="chatbot-trigger-label">PulseAI</span>
+    </button>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js?v=20260903_v4"></script>
+  <script src="animations.js?v=20260903_v4"></script>
+</body>
+</html>
