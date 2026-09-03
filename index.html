@@ -11,7 +11,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260903_v3">
+  <link rel="stylesheet" href="style.css?v=20260903_v5">
+  <!-- Firebase App & Firestore SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <!-- Animated Background Layers -->
@@ -88,6 +91,12 @@
       <button type="button" class="btn-secondary guest-btn" id="btn-guest-login">
         <span class="guest-icon">⚡</span> Quick Demo Guest Login
       </button>
+
+      <div class="auth-admin-row">
+        <button type="button" class="btn-auth-admin" id="auth-admin-btn">
+          👑 Owner / User Database & Logins
+        </button>
+      </div>
     </div>
   </div>
 
@@ -208,6 +217,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
         </div>
+
+        <button type="button" class="btn-admin-portal" id="btn-admin-portal" title="Owner Database & Login Analytics">
+          👑 User Database & Logins
+        </button>
       </div>
     </aside>
 
@@ -672,6 +685,144 @@
     </div>
   </div>
 
+  <!-- Owner / Admin & User Database Modal -->
+  <div class="modal-overlay" id="admin-modal">
+    <div class="modal modal-lg admin-modal-card">
+      <div class="modal-header">
+        <div class="admin-header-title">
+          <span class="admin-crown-badge">👑 Owner Dashboard</span>
+          <h2>User Database & Login Analytics</h2>
+        </div>
+        <button class="modal-close" id="admin-modal-close" aria-label="Close admin modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- PIN Verification Gate (if locked) -->
+      <div class="admin-pin-view" id="admin-pin-view">
+        <div class="admin-pin-box">
+          <div class="pin-lock-icon">🔒</div>
+          <h3>Owner Access Verification</h3>
+          <p>Enter your owner PIN to view user login credentials & analytics.</p>
+          <div class="pin-input-row">
+            <input type="password" id="admin-pin-input" placeholder="Enter PIN (Default: 1234)" maxlength="8" autocomplete="off">
+            <button type="button" class="btn-primary" id="btn-admin-unlock">Unlock</button>
+          </div>
+          <span class="pin-hint">Default owner PIN is <code>1234</code>. You can customize this anytime.</span>
+        </div>
+      </div>
+
+      <!-- Main Admin Content (shown when unlocked) -->
+      <div class="admin-content-view hidden" id="admin-content-view">
+        <!-- Live Metrics Cards -->
+        <div class="admin-metrics-grid">
+          <div class="admin-metric-card">
+            <div class="metric-icon metric-users">👥</div>
+            <div class="metric-details">
+              <span class="metric-label">TOTAL USERS</span>
+              <h3 id="admin-total-users">0</h3>
+            </div>
+          </div>
+          <div class="admin-metric-card">
+            <div class="metric-icon metric-logins">⚡</div>
+            <div class="metric-details">
+              <span class="metric-label">TOTAL LOGIN SESSIONS</span>
+              <h3 id="admin-total-logins">0</h3>
+            </div>
+          </div>
+          <div class="admin-metric-card">
+            <div class="metric-icon metric-mobile">📱</div>
+            <div class="metric-details">
+              <span class="metric-label">MOBILE VISITS</span>
+              <h3 id="admin-mobile-count">0</h3>
+            </div>
+          </div>
+          <div class="admin-metric-card">
+            <div class="metric-icon metric-desktop">💻</div>
+            <div class="metric-details">
+              <span class="metric-label">DESKTOP VISITS</span>
+              <h3 id="admin-desktop-count">0</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Connection Status Banner -->
+        <div class="admin-db-status" id="admin-db-status">
+          <div class="db-status-info">
+            <span class="status-indicator-dot online" id="db-status-dot"></span>
+            <div>
+              <strong id="db-status-title">Database Mode: Active Persistent Tracking</strong>
+              <p id="db-status-desc">User credentials & login counts are recorded on every visit.</p>
+            </div>
+          </div>
+          <button type="button" class="btn-xs-secondary" id="btn-toggle-db-config">⚙️ Cloud Database (Firebase)</button>
+        </div>
+
+        <!-- Cloud DB Config Form (Collapsible) -->
+        <div class="admin-db-config hidden" id="admin-db-config">
+          <h4>Google Firebase Cloud Database Setup</h4>
+          <p class="config-desc">Connect your free Firebase Firestore database so user logins from any mobile phone or computer instantly sync to your cloud database in real time.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fb-apiKey">Firebase API Key</label>
+              <input type="text" id="fb-apiKey" placeholder="AIzaSy...">
+            </div>
+            <div class="form-group">
+              <label for="fb-projectId">Project ID</label>
+              <input type="text" id="fb-projectId" placeholder="spendpulse-12345">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fb-authDomain">Auth Domain</label>
+              <input type="text" id="fb-authDomain" placeholder="spendpulse-12345.firebaseapp.com">
+            </div>
+            <div class="form-group">
+              <label for="fb-appId">App ID</label>
+              <input type="text" id="fb-appId" placeholder="1:123456789:web:abcdef">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" id="btn-cancel-db-config">Close</button>
+            <button type="button" class="btn-primary" id="btn-save-db-config">Save & Connect Firebase</button>
+          </div>
+        </div>
+
+        <!-- User Logins Table Section -->
+        <div class="admin-table-section">
+          <div class="table-header-row">
+            <h4>User Credentials & Login History</h4>
+            <div class="table-search-box">
+              <input type="text" id="admin-user-search" placeholder="Search by username...">
+            </div>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Total Logins</th>
+                  <th>First Registered</th>
+                  <th>Last Active</th>
+                  <th>Device / Browser</th>
+                </tr>
+              </thead>
+              <tbody id="admin-user-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-modal-footer">
+          <button type="button" class="btn-secondary btn-sm" id="btn-export-users-csv">📥 Download CSV Report</button>
+          <button type="button" class="btn-secondary btn-sm" id="btn-change-pin">🔑 Change Owner PIN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PulseAI Chatbot Widget -->
   <div class="chatbot-widget" id="chatbot-widget">
     <!-- Chatbot Window -->
@@ -755,7 +906,7 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="app.js?v=20260903_v4"></script>
-  <script src="animations.js?v=20260903_v4"></script>
+  <script src="app.js?v=20260903_v5"></script>
+  <script src="animations.js?v=20260903_v5"></script>
 </body>
 </html>
