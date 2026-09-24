@@ -174,8 +174,10 @@ const DOM = {
   btnDeleteConfirm: $('#btn-delete-confirm'),
 
   // Export CSV
-  btnExportCsv:       $('#btn-export-csv'),
-  btnExportRecentCsv: $('#btn-export-recent-csv'),
+  btnHeaderExportCsv:    $('#btn-header-export-csv'),
+  btnDashboardExportCsv: $('#btn-dashboard-export-csv'),
+  btnExportCsv:          $('#btn-export-csv'),
+  btnExportRecentCsv:    $('#btn-export-recent-csv'),
   exportModal:        $('#export-modal'),
   exportModalClose:   $('#export-modal-close'),
   btnExportCancel:    $('#btn-export-cancel'),
@@ -1746,13 +1748,10 @@ function initEvents() {
   DOM.filterCategory.addEventListener('change', renderAllExpenses);
   DOM.sortBy.addEventListener('change', renderAllExpenses);
 
-  // CSV Export
-  if (DOM.btnExportCsv) {
-    DOM.btnExportCsv.addEventListener('click', openExportModal);
-  }
-  if (DOM.btnExportRecentCsv) {
-    DOM.btnExportRecentCsv.addEventListener('click', openExportModal);
-  }
+  // CSV Export Buttons across Header, Dashboard Banner, Recent card, and Toolbar
+  [DOM.btnHeaderExportCsv, DOM.btnDashboardExportCsv, DOM.btnExportCsv, DOM.btnExportRecentCsv].forEach(btn => {
+    btn?.addEventListener('click', openExportModal);
+  });
   if (DOM.exportModalClose) {
     DOM.exportModalClose.addEventListener('click', () => closeModal(DOM.exportModal));
   }
