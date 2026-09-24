@@ -12,7 +12,7 @@ SpendPulse is a modern, responsive personal finance dashboard designed to help y
 ## 🚀 Key Features
 
 - 📱 **Full Mobile Optimization**: Sleek off-canvas navigation drawer, sticky compact header with month switcher, single-column glowing stat cards, and responsive charts.
-- 🤖 **PulseAI Financial Assistant**: Integrated AI assistant ready to answer questions on avoiding overspending, saving strategies, 50/30/20 budgeting, emergency funds, SIP compounding, and instant natural language expense logging (`"Add 50 for Coffee"`).
+- 🤖 **PulseAI Financial Assistant**: Integrated AI assistant powered by ultra-fast **Groq (Llama 3.3 / Mixtral)** and **Google Gemini**, with custom in-app API key configuration. Ready to answer questions on avoiding overspending, saving strategies, 50/30/20 budgeting, emergency funds, SIP compounding, and instant natural language expense logging (`"Add 50 for Coffee"`).
 - 📊 **Dynamic Visual Analytics**:
   - Interactive daily & weekly **Spending Trend line charts**.
   - Category breakdown **Donut Chart** with centered totals.
