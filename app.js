@@ -30,6 +30,12 @@ const CURRENCY_LOCALES = {
   EGP: 'ar-EG', KES: 'en-KE', AUD: 'en-AU', NZD: 'en-NZ',
 };
 
+// ─── Month Names ───────────────────
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 // ─── Financial Quotes ──────────────
 const FINANCIAL_QUOTES = [
   { quote: "Do not save what is left after spending, but spend what is left after saving.", author: "Warren Buffett" },
@@ -1373,107 +1379,122 @@ function triggerCSVDownload(csvContent, filename) {
 }
 
 function exportExpensesToCSV(scope = 'auto') {
-  let expensesToExport = [];
-  let fileSuffix = '';
-  const monthName = MONTH_NAMES[state.currentMonth] + '_' + state.currentYear;
+  try {
+    let expensesToExport = [];
+    let fileSuffix = '';
+    const currentMonthIdx = (typeof state !== 'undefined' && typeof state.currentMonth === 'number') ? state.currentMonth : new Date().getMonth();
+    const currentYearVal = (typeof state !== 'undefined' && state.currentYear) || new Date().getFullYear();
+    const safeMonthName = (MONTH_NAMES[currentMonthIdx] || 'Expenses') + '_' + currentYearVal;
 
-  const currentMonthExpenses = getMonthExpenses();
-  const allExpenses = (state.expenses && state.expenses.length > 0) ? state.expenses : [];
+    const currentMonthExpenses = (typeof getMonthExpenses === 'function') ? getMonthExpenses() : [];
+    const allExpenses = (typeof state !== 'undefined' && state.expenses && state.expenses.length > 0) ? state.expenses : [];
 
-  if (scope === 'all') {
-    expensesToExport = [...allExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-    fileSuffix = 'All_Expenses_' + new Date().toISOString().slice(0, 10);
-  } else if (scope === 'filtered') {
-    expensesToExport = getFilteredExpenses();
-    fileSuffix = 'Filtered_' + monthName;
-  } else {
-    // 'auto' or 'month' mode:
-    // If current month has expenses, use them.
-    // If current month is empty but allExpenses has items, export all so user gets their data!
-    if (currentMonthExpenses.length > 0) {
-      expensesToExport = [...currentMonthExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-      fileSuffix = monthName;
-    } else if (allExpenses.length > 0) {
+    if (scope === 'all') {
       expensesToExport = [...allExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
       fileSuffix = 'All_Expenses_' + new Date().toISOString().slice(0, 10);
+    } else if (scope === 'filtered') {
+      expensesToExport = (typeof getFilteredExpenses === 'function') ? getFilteredExpenses() : allExpenses;
+      fileSuffix = 'Filtered_' + safeMonthName;
     } else {
-      expensesToExport = [];
-      fileSuffix = monthName;
+      // 'auto' or 'month' mode:
+      // If current month has expenses, use them.
+      // If current month is empty but allExpenses has items, export all so user gets their data!
+      if (currentMonthExpenses.length > 0) {
+        expensesToExport = [...currentMonthExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+        fileSuffix = safeMonthName;
+      } else if (allExpenses.length > 0) {
+        expensesToExport = [...allExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+        fileSuffix = 'All_Expenses_' + new Date().toISOString().slice(0, 10);
+      } else {
+        expensesToExport = [];
+        fileSuffix = safeMonthName;
+      }
+    }
+
+    const currencyCode = (typeof state !== 'undefined' && state.currency) || 'INR';
+    const headers = ['Date', 'Expense Title', 'Category', 'Amount (' + currencyCode + ')', 'Currency', 'Notes', 'Transaction ID'];
+
+    function formatCSVCell(value) {
+      if (value === null || value === undefined) return '""';
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    const rows = [headers.map(formatCSVCell).join(',')];
+    let totalAmount = 0;
+
+    if (expensesToExport.length > 0) {
+      expensesToExport.forEach(e => {
+        const cat = (typeof getCategory === 'function') ? getCategory(e.category) : null;
+        const catLabel = cat ? `${cat.emoji} ${cat.label}` : (e.category || 'General');
+        const amt = Number(e.amount) || 0;
+        totalAmount += amt;
+
+        const row = [
+          formatCSVCell(e.date || new Date().toISOString().slice(0, 10)),
+          formatCSVCell(e.title || 'Untitled Expense'),
+          formatCSVCell(catLabel),
+          formatCSVCell(amt.toFixed(2)),
+          formatCSVCell(currencyCode),
+          formatCSVCell(e.notes || ''),
+          formatCSVCell(e.id || '')
+        ];
+        rows.push(row.join(','));
+      });
+
+      // Summary Row
+      rows.push('');
+      rows.push([
+        '"Total"',
+        '""',
+        '""',
+        formatCSVCell(totalAmount.toFixed(2)),
+        formatCSVCell(currencyCode),
+        formatCSVCell(`${expensesToExport.length} transactions`),
+        '""'
+      ].join(','));
+    } else {
+      // If no expenses exist at all yet, provide sample row so user gets a valid spreadsheet
+      const todayStr = new Date().toISOString().slice(0, 10);
+      rows.push([
+        formatCSVCell(todayStr),
+        formatCSVCell('Sample Expense (Log your first expense in SpendPulse!)'),
+        formatCSVCell('🍔 Food & Dining'),
+        formatCSVCell('150.00'),
+        formatCSVCell(currencyCode),
+        formatCSVCell('Downloaded from SpendPulse'),
+        formatCSVCell('sample_1')
+      ].join(','));
+    }
+
+    // UTF-8 BOM (\uFEFF) so Excel opens with proper character encoding immediately
+    const csvContent = '\uFEFF' + rows.join('\r\n');
+    const filename = `SpendPulse_Expenses_${fileSuffix}.csv`;
+
+    triggerCSVDownload(csvContent, filename);
+
+    if (DOM && DOM.exportModal && DOM.exportModal.classList.contains('active')) {
+      closeModal(DOM.exportModal);
+    }
+
+    const recordCount = expensesToExport.length > 0 ? expensesToExport.length : 1;
+    if (typeof showToast === 'function') {
+      showToast(`📥 Downloaded ${recordCount} expenses into Excel sheet!`, 'success');
+    }
+    if (typeof window.launchConfetti === 'function') {
+      window.launchConfetti(window.innerWidth / 2, window.innerHeight / 2);
+    }
+  } catch (err) {
+    console.error('Export CSV error:', err);
+    if (typeof showToast === 'function') {
+      showToast('Export failed: ' + (err.message || err), 'error');
     }
   }
-
-  const currencyCode = state.currency || 'INR';
-  const headers = ['Date', 'Expense Title', 'Category', 'Amount (' + currencyCode + ')', 'Currency', 'Notes', 'Transaction ID'];
-
-  function formatCSVCell(value) {
-    if (value === null || value === undefined) return '""';
-    const str = String(value);
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  const rows = [headers.map(formatCSVCell).join(',')];
-  let totalAmount = 0;
-
-  if (expensesToExport.length > 0) {
-    expensesToExport.forEach(e => {
-      const cat = getCategory(e.category);
-      const catLabel = cat ? `${cat.emoji} ${cat.label}` : (e.category || 'General');
-      const amt = Number(e.amount) || 0;
-      totalAmount += amt;
-
-      const row = [
-        formatCSVCell(e.date || new Date().toISOString().slice(0, 10)),
-        formatCSVCell(e.title || 'Untitled Expense'),
-        formatCSVCell(catLabel),
-        formatCSVCell(amt.toFixed(2)),
-        formatCSVCell(currencyCode),
-        formatCSVCell(e.notes || ''),
-        formatCSVCell(e.id || '')
-      ];
-      rows.push(row.join(','));
-    });
-
-    // Summary Row
-    rows.push('');
-    rows.push([
-      '"Total"',
-      '""',
-      '""',
-      formatCSVCell(totalAmount.toFixed(2)),
-      formatCSVCell(currencyCode),
-      formatCSVCell(`${expensesToExport.length} transactions`),
-      '""'
-    ].join(','));
-  } else {
-    // If no expenses exist at all yet, provide sample row so user gets a valid spreadsheet
-    const todayStr = new Date().toISOString().slice(0, 10);
-    rows.push([
-      formatCSVCell(todayStr),
-      formatCSVCell('Sample Expense (Log your first expense in SpendPulse!)'),
-      formatCSVCell('🍔 Food & Dining'),
-      formatCSVCell('150.00'),
-      formatCSVCell(currencyCode),
-      formatCSVCell('Downloaded from SpendPulse'),
-      formatCSVCell('sample_1')
-    ].join(','));
-  }
-
-  // UTF-8 BOM (\uFEFF) so Excel opens with proper character encoding immediately
-  const csvContent = '\uFEFF' + rows.join('\r\n');
-  const filename = `SpendPulse_Expenses_${fileSuffix}.csv`;
-
-  triggerCSVDownload(csvContent, filename);
-
-  if (DOM.exportModal && DOM.exportModal.classList.contains('active')) {
-    closeModal(DOM.exportModal);
-  }
-
-  const recordCount = expensesToExport.length > 0 ? expensesToExport.length : 1;
-  showToast(`📥 Downloaded ${recordCount} expenses into Excel sheet!`, 'success');
-  if (typeof window.launchConfetti === 'function') {
-    window.launchConfetti(window.innerWidth / 2, window.innerHeight / 2);
-  }
 }
+
+// Make accessible globally on window for inline handlers & fallbacks
+window.exportExpensesToCSV = exportExpensesToCSV;
+window.exportExpensesDirect = exportExpensesToCSV;
 
 // ─── Populate Filter Dropdown ──────
 function populateFilterDropdown() {
