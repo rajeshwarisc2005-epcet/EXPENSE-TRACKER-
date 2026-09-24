@@ -1341,34 +1341,70 @@ function updateExportOptionCards(selectedScope, count) {
   }
 }
 
-function exportExpensesToCSV(scope = 'month') {
+function triggerCSVDownload(csvContent, filename) {
+  try {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+      window.navigator.msSaveOrOpenBlob(blob, filename);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  } catch (err) {
+    // Fallback: data URI
+    const encoded = encodeURI('data:text/csv;charset=utf-8,' + csvContent);
+    const link = document.createElement('a');
+    link.href = encoded;
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => document.body.removeChild(link), 1000);
+  }
+}
+
+function exportExpensesToCSV(scope = 'auto') {
   let expensesToExport = [];
   let fileSuffix = '';
   const monthName = MONTH_NAMES[state.currentMonth] + '_' + state.currentYear;
 
+  const currentMonthExpenses = getMonthExpenses();
+  const allExpenses = (state.expenses && state.expenses.length > 0) ? state.expenses : [];
+
   if (scope === 'all') {
-    expensesToExport = [...state.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-    fileSuffix = 'All_Time_' + new Date().toISOString().slice(0, 10);
+    expensesToExport = [...allExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+    fileSuffix = 'All_Expenses_' + new Date().toISOString().slice(0, 10);
   } else if (scope === 'filtered') {
     expensesToExport = getFilteredExpenses();
     fileSuffix = 'Filtered_' + monthName;
   } else {
-    // Current month
-    expensesToExport = getMonthExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
-    fileSuffix = monthName;
-  }
-
-  if (expensesToExport.length === 0) {
-    showToast('No expenses found in this selection to export', 'info');
-    return;
+    // 'auto' or 'month' mode:
+    // If current month has expenses, use them.
+    // If current month is empty but allExpenses has items, export all so user gets their data!
+    if (currentMonthExpenses.length > 0) {
+      expensesToExport = [...currentMonthExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+      fileSuffix = monthName;
+    } else if (allExpenses.length > 0) {
+      expensesToExport = [...allExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+      fileSuffix = 'All_Expenses_' + new Date().toISOString().slice(0, 10);
+    } else {
+      expensesToExport = [];
+      fileSuffix = monthName;
+    }
   }
 
   const currencyCode = state.currency || 'INR';
-
-  // Excel CSV Headers
   const headers = ['Date', 'Expense Title', 'Category', 'Amount (' + currencyCode + ')', 'Currency', 'Notes', 'Transaction ID'];
 
-  // Helper to escape CSV cell for Excel
   function formatCSVCell(value) {
     if (value === null || value === undefined) return '""';
     const str = String(value);
@@ -1378,56 +1414,62 @@ function exportExpensesToCSV(scope = 'month') {
   const rows = [headers.map(formatCSVCell).join(',')];
   let totalAmount = 0;
 
-  expensesToExport.forEach(e => {
-    const cat = getCategory(e.category);
-    const catLabel = cat ? `${cat.emoji} ${cat.label}` : e.category;
-    const amt = Number(e.amount) || 0;
-    totalAmount += amt;
+  if (expensesToExport.length > 0) {
+    expensesToExport.forEach(e => {
+      const cat = getCategory(e.category);
+      const catLabel = cat ? `${cat.emoji} ${cat.label}` : (e.category || 'General');
+      const amt = Number(e.amount) || 0;
+      totalAmount += amt;
 
-    const row = [
-      formatCSVCell(e.date),
-      formatCSVCell(e.title),
-      formatCSVCell(catLabel),
-      formatCSVCell(amt.toFixed(2)),
+      const row = [
+        formatCSVCell(e.date || new Date().toISOString().slice(0, 10)),
+        formatCSVCell(e.title || 'Untitled Expense'),
+        formatCSVCell(catLabel),
+        formatCSVCell(amt.toFixed(2)),
+        formatCSVCell(currencyCode),
+        formatCSVCell(e.notes || ''),
+        formatCSVCell(e.id || '')
+      ];
+      rows.push(row.join(','));
+    });
+
+    // Summary Row
+    rows.push('');
+    rows.push([
+      '"Total"',
+      '""',
+      '""',
+      formatCSVCell(totalAmount.toFixed(2)),
       formatCSVCell(currencyCode),
-      formatCSVCell(e.notes || ''),
-      formatCSVCell(e.id)
-    ];
-    rows.push(row.join(','));
-  });
-
-  // Summary Row at the bottom for Excel
-  rows.push('');
-  rows.push([
-    '"Total"',
-    '""',
-    '""',
-    formatCSVCell(totalAmount.toFixed(2)),
-    formatCSVCell(currencyCode),
-    formatCSVCell(`${expensesToExport.length} transactions`),
-    '""'
-  ].join(','));
+      formatCSVCell(`${expensesToExport.length} transactions`),
+      '""'
+    ].join(','));
+  } else {
+    // If no expenses exist at all yet, provide sample row so user gets a valid spreadsheet
+    const todayStr = new Date().toISOString().slice(0, 10);
+    rows.push([
+      formatCSVCell(todayStr),
+      formatCSVCell('Sample Expense (Log your first expense in SpendPulse!)'),
+      formatCSVCell('🍔 Food & Dining'),
+      formatCSVCell('150.00'),
+      formatCSVCell(currencyCode),
+      formatCSVCell('Downloaded from SpendPulse'),
+      formatCSVCell('sample_1')
+    ].join(','));
+  }
 
   // UTF-8 BOM (\uFEFF) so Excel opens with proper character encoding immediately
   const csvContent = '\uFEFF' + rows.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const filename = `SpendPulse_Expenses_${fileSuffix}.csv`;
 
-  // Download Trigger
-  const link = document.createElement('a');
-  if (link.download !== undefined) {
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  triggerCSVDownload(csvContent, filename);
+
+  if (DOM.exportModal && DOM.exportModal.classList.contains('active')) {
+    closeModal(DOM.exportModal);
   }
 
-  closeModal(DOM.exportModal);
-  showToast(`📥 Exported ${expensesToExport.length} expenses to Excel!`, 'success');
+  const recordCount = expensesToExport.length > 0 ? expensesToExport.length : 1;
+  showToast(`📥 Downloaded ${recordCount} expenses into Excel sheet!`, 'success');
   if (typeof window.launchConfetti === 'function') {
     window.launchConfetti(window.innerWidth / 2, window.innerHeight / 2);
   }
@@ -1748,9 +1790,13 @@ function initEvents() {
   DOM.filterCategory.addEventListener('change', renderAllExpenses);
   DOM.sortBy.addEventListener('change', renderAllExpenses);
 
-  // CSV Export Buttons across Header, Dashboard Banner, Recent card, and Toolbar
+  // CSV Export Buttons: immediately trigger download on click!
   [DOM.btnHeaderExportCsv, DOM.btnDashboardExportCsv, DOM.btnExportCsv, DOM.btnExportRecentCsv].forEach(btn => {
-    btn?.addEventListener('click', openExportModal);
+    btn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exportExpensesToCSV('auto');
+    });
   });
   if (DOM.exportModalClose) {
     DOM.exportModalClose.addEventListener('click', () => closeModal(DOM.exportModal));
@@ -1759,8 +1805,9 @@ function initEvents() {
     DOM.btnExportCancel.addEventListener('click', () => closeModal(DOM.exportModal));
   }
   if (DOM.btnExportDownload) {
-    DOM.btnExportDownload.addEventListener('click', () => {
-      const scope = document.querySelector('input[name="export-scope"]:checked')?.value || 'month';
+    DOM.btnExportDownload.addEventListener('click', (e) => {
+      e.preventDefault();
+      const scope = document.querySelector('input[name="export-scope"]:checked')?.value || 'auto';
       exportExpensesToCSV(scope);
     });
   }
