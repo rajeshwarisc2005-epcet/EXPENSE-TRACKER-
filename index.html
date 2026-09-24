@@ -329,7 +329,13 @@
         <div class="card recent-card">
           <div class="card-header">
             <h2>Recent Expenses</h2>
-            <button class="link-btn" id="view-all-expenses">View All →</button>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button class="link-btn btn-export-quick" id="btn-export-recent-csv" title="Export this month's expenses to CSV / Excel" style="display:flex;align-items:center;gap:5px;color:#4ade80;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Export CSV</span>
+              </button>
+              <button class="link-btn" id="view-all-expenses">View All →</button>
+            </div>
           </div>
           <div class="expense-list" id="recent-expenses"></div>
         </div>
@@ -352,6 +358,14 @@
               <option value="amount-desc">Highest Amount</option>
               <option value="amount-asc">Lowest Amount</option>
             </select>
+            <button class="btn-export-csv" id="btn-export-csv" title="Export Expenses to Excel / CSV">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
         <div class="expense-list full-list" id="all-expenses"></div>
@@ -672,6 +686,64 @@
     </div>
   </div>
 
+  <!-- Export CSV / Excel Modal -->
+  <div class="modal-overlay" id="export-modal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(34,197,94,0.15);color:#4ade80;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <h2>Export to Excel / CSV</h2>
+        </div>
+        <button class="modal-close" id="export-modal-close" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="export-options" style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+        <label class="export-option-card active" id="export-opt-month">
+          <input type="radio" name="export-scope" value="month" checked>
+          <div class="export-opt-info">
+            <span class="export-opt-title" id="export-month-title">Current Month Expenses</span>
+            <span class="export-opt-desc" id="export-month-desc">Expenses for selected month</span>
+          </div>
+        </label>
+        <label class="export-option-card" id="export-opt-all">
+          <input type="radio" name="export-scope" value="all">
+          <div class="export-opt-info">
+            <span class="export-opt-title">All Time Expenses</span>
+            <span class="export-opt-desc" id="export-all-desc">Complete transaction history</span>
+          </div>
+        </label>
+        <label class="export-option-card hidden" id="export-opt-filtered">
+          <input type="radio" name="export-scope" value="filtered">
+          <div class="export-opt-info">
+            <span class="export-opt-title">Filtered Results</span>
+            <span class="export-opt-desc" id="export-filtered-desc">Matches your current search &amp; filter</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="export-meta-preview" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:0.78rem;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;">
+        <span>Format: <strong style="color:#e2e8f0;">CSV (Excel Compatible UTF-8)</strong></span>
+        <span id="export-count-badge" style="color:#4ade80;font-weight:600;">0 records</span>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="btn-export-cancel">Cancel</button>
+        <button type="button" class="btn-primary" id="btn-export-download" style="background:linear-gradient(135deg, #16a34a 0%, #22c55e 100%);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Download Excel File</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- PulseAI Chatbot Widget -->
   <div class="chatbot-widget" id="chatbot-widget">
     <!-- Chatbot Window -->
@@ -808,7 +880,7 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="app.js?v=20260924_groq"></script>
-  <script src="animations.js?v=20260924_groq"></script>
+  <script src="app.js?v=20260924_csv"></script>
+  <script src="animations.js?v=20260924_csv"></script>
 </body>
 </html>

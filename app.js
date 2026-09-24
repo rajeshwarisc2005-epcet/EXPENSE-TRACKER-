@@ -173,6 +173,20 @@ const DOM = {
   btnDeleteCancel:  $('#btn-delete-cancel'),
   btnDeleteConfirm: $('#btn-delete-confirm'),
 
+  // Export CSV
+  btnExportCsv:       $('#btn-export-csv'),
+  btnExportRecentCsv: $('#btn-export-recent-csv'),
+  exportModal:        $('#export-modal'),
+  exportModalClose:   $('#export-modal-close'),
+  btnExportCancel:    $('#btn-export-cancel'),
+  btnExportDownload:  $('#btn-export-download'),
+  exportMonthTitle:   $('#export-month-title'),
+  exportMonthDesc:    $('#export-month-desc'),
+  exportAllDesc:      $('#export-all-desc'),
+  exportOptFiltered:  $('#export-opt-filtered'),
+  exportFilteredDesc: $('#export-filtered-desc'),
+  exportCountBadge:   $('#export-count-badge'),
+
   // Auth Overlay & User Profile
   authOverlay:      $('#auth-overlay'),
   tabLogin:         $('#tab-login'),
@@ -768,9 +782,8 @@ function attachExpenseActions(container) {
   });
 }
 
-// ─── Render: All Expenses ──────────
-function renderAllExpenses() {
-  if (!DOM.allExpenses) return;
+// ─── Filtered Expenses Helper ─────
+function getFilteredExpenses() {
   let expenses = getMonthExpenses();
   const search = DOM.searchInput ? DOM.searchInput.value.toLowerCase().trim() : '';
   const filterCat = DOM.filterCategory ? DOM.filterCategory.value : 'all';
@@ -794,6 +807,13 @@ function renderAllExpenses() {
     case 'amount-desc': expenses.sort((a, b) => b.amount - a.amount); break;
     case 'amount-asc':  expenses.sort((a, b) => a.amount - b.amount); break;
   }
+  return expenses;
+}
+
+// ─── Render: All Expenses ──────────
+function renderAllExpenses() {
+  if (!DOM.allExpenses) return;
+  const expenses = getFilteredExpenses();
 
   if (expenses.length === 0) {
     DOM.allExpenses.innerHTML = '';
@@ -1268,6 +1288,149 @@ function closeModal(modal) {
   document.body.style.overflow = '';
 }
 
+// ─── Modal: Export CSV / Excel ─────
+function openExportModal() {
+  const monthExp = getMonthExpenses();
+  const allExp = state.expenses;
+  const filteredExp = getFilteredExpenses();
+  const monthName = MONTH_NAMES[state.currentMonth] + ' ' + state.currentYear;
+
+  const monthTotal = monthExp.reduce((s, e) => s + e.amount, 0);
+  const allTotal = allExp.reduce((s, e) => s + e.amount, 0);
+  const filteredTotal = filteredExp.reduce((s, e) => s + e.amount, 0);
+
+  if (DOM.exportMonthTitle) {
+    DOM.exportMonthTitle.textContent = `${monthName} Expenses`;
+  }
+  if (DOM.exportMonthDesc) {
+    DOM.exportMonthDesc.textContent = `${monthExp.length} transactions • Total: ${formatCurrency(monthTotal)}`;
+  }
+  if (DOM.exportAllDesc) {
+    DOM.exportAllDesc.textContent = `${allExp.length} transactions • Total: ${formatCurrency(allTotal)}`;
+  }
+
+  const isFiltered = (DOM.searchInput && DOM.searchInput.value.trim() !== '') || (DOM.filterCategory && DOM.filterCategory.value !== 'all');
+
+  if (isFiltered && DOM.exportOptFiltered) {
+    DOM.exportOptFiltered.classList.remove('hidden');
+    if (DOM.exportFilteredDesc) {
+      DOM.exportFilteredDesc.textContent = `${filteredExp.length} matching transactions • Total: ${formatCurrency(filteredTotal)}`;
+    }
+    const filteredRadio = document.querySelector('input[name="export-scope"][value="filtered"]');
+    if (filteredRadio) filteredRadio.checked = true;
+    updateExportOptionCards('filtered', filteredExp.length);
+  } else {
+    if (DOM.exportOptFiltered) DOM.exportOptFiltered.classList.add('hidden');
+    const monthRadio = document.querySelector('input[name="export-scope"][value="month"]');
+    if (monthRadio) monthRadio.checked = true;
+    updateExportOptionCards('month', monthExp.length);
+  }
+
+  openModal(DOM.exportModal);
+}
+
+function updateExportOptionCards(selectedScope, count) {
+  document.querySelectorAll('.export-option-card').forEach(card => {
+    const radio = card.querySelector('input[name="export-scope"]');
+    card.classList.toggle('active', radio && radio.value === selectedScope);
+  });
+  if (DOM.exportCountBadge) {
+    DOM.exportCountBadge.textContent = `${count} records selected`;
+  }
+}
+
+function exportExpensesToCSV(scope = 'month') {
+  let expensesToExport = [];
+  let fileSuffix = '';
+  const monthName = MONTH_NAMES[state.currentMonth] + '_' + state.currentYear;
+
+  if (scope === 'all') {
+    expensesToExport = [...state.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+    fileSuffix = 'All_Time_' + new Date().toISOString().slice(0, 10);
+  } else if (scope === 'filtered') {
+    expensesToExport = getFilteredExpenses();
+    fileSuffix = 'Filtered_' + monthName;
+  } else {
+    // Current month
+    expensesToExport = getMonthExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
+    fileSuffix = monthName;
+  }
+
+  if (expensesToExport.length === 0) {
+    showToast('No expenses found in this selection to export', 'info');
+    return;
+  }
+
+  const currencyCode = state.currency || 'INR';
+
+  // Excel CSV Headers
+  const headers = ['Date', 'Expense Title', 'Category', 'Amount (' + currencyCode + ')', 'Currency', 'Notes', 'Transaction ID'];
+
+  // Helper to escape CSV cell for Excel
+  function formatCSVCell(value) {
+    if (value === null || value === undefined) return '""';
+    const str = String(value);
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  const rows = [headers.map(formatCSVCell).join(',')];
+  let totalAmount = 0;
+
+  expensesToExport.forEach(e => {
+    const cat = getCategory(e.category);
+    const catLabel = cat ? `${cat.emoji} ${cat.label}` : e.category;
+    const amt = Number(e.amount) || 0;
+    totalAmount += amt;
+
+    const row = [
+      formatCSVCell(e.date),
+      formatCSVCell(e.title),
+      formatCSVCell(catLabel),
+      formatCSVCell(amt.toFixed(2)),
+      formatCSVCell(currencyCode),
+      formatCSVCell(e.notes || ''),
+      formatCSVCell(e.id)
+    ];
+    rows.push(row.join(','));
+  });
+
+  // Summary Row at the bottom for Excel
+  rows.push('');
+  rows.push([
+    '"Total"',
+    '""',
+    '""',
+    formatCSVCell(totalAmount.toFixed(2)),
+    formatCSVCell(currencyCode),
+    formatCSVCell(`${expensesToExport.length} transactions`),
+    '""'
+  ].join(','));
+
+  // UTF-8 BOM (\uFEFF) so Excel opens with proper character encoding immediately
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const filename = `SpendPulse_Expenses_${fileSuffix}.csv`;
+
+  // Download Trigger
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  closeModal(DOM.exportModal);
+  showToast(`📥 Exported ${expensesToExport.length} expenses to Excel!`, 'success');
+  if (typeof window.launchConfetti === 'function') {
+    window.launchConfetti(window.innerWidth / 2, window.innerHeight / 2);
+  }
+}
+
 // ─── Populate Filter Dropdown ──────
 function populateFilterDropdown() {
   DOM.filterCategory.innerHTML = '<option value="all">All Categories</option>' +
@@ -1582,6 +1745,37 @@ function initEvents() {
   DOM.searchInput.addEventListener('input', renderAllExpenses);
   DOM.filterCategory.addEventListener('change', renderAllExpenses);
   DOM.sortBy.addEventListener('change', renderAllExpenses);
+
+  // CSV Export
+  if (DOM.btnExportCsv) {
+    DOM.btnExportCsv.addEventListener('click', openExportModal);
+  }
+  if (DOM.btnExportRecentCsv) {
+    DOM.btnExportRecentCsv.addEventListener('click', openExportModal);
+  }
+  if (DOM.exportModalClose) {
+    DOM.exportModalClose.addEventListener('click', () => closeModal(DOM.exportModal));
+  }
+  if (DOM.btnExportCancel) {
+    DOM.btnExportCancel.addEventListener('click', () => closeModal(DOM.exportModal));
+  }
+  if (DOM.btnExportDownload) {
+    DOM.btnExportDownload.addEventListener('click', () => {
+      const scope = document.querySelector('input[name="export-scope"]:checked')?.value || 'month';
+      exportExpensesToCSV(scope);
+    });
+  }
+  document.querySelectorAll('input[name="export-scope"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const scope = e.target.value;
+      const count = scope === 'all'
+        ? state.expenses.length
+        : scope === 'filtered'
+          ? getFilteredExpenses().length
+          : getMonthExpenses().length;
+      updateExportOptionCards(scope, count);
+    });
+  });
 
   // View all expenses
   DOM.viewAllBtn.addEventListener('click', () => switchView('expenses'));

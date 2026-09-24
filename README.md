@@ -18,6 +18,7 @@ SpendPulse is a modern, responsive personal finance dashboard designed to help y
   - Category breakdown **Donut Chart** with centered totals.
   - Recent transactions list with fast filtering and search.
 - 🎯 **Category Budgets**: Set spending caps with real-time health badges (Healthy, Warning, Over Budget).
+- 📥 **Excel & CSV Export**: One-click export of your expenses to an Excel-compatible CSV file (with UTF-8 BOM, amounts, categories, dates, notes, and summary totals) for the selected month, filtered search results, or all time.
 - 📈 **Mutual Funds & SIP Tracker**: Monitor your active investments, current valuation, and compounding portfolio growth.
 - 🔐 **Privacy First & Local Storage**: All your data stays secure inside your browser with guest demo mode and custom profile support.
 
